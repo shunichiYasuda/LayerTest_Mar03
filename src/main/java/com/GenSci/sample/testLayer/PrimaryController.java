@@ -13,6 +13,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
+import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.paint.Color;
@@ -27,12 +28,13 @@ public class PrimaryController {
 	double[][] typeDataTable;
 	double[] nowExpAveData; // 実験番号が定まった後から中身が入る平均値
 	double[][] nowExpTypeData; // 実験番号が定まった後から中身が入るタイプ別個体比率
+	int nowExp = 0; // 現時点での実験番号。これは expSpinner で変更される。
 	// アプリを立ち上げた時に設定されてしまうパラメータ.これらは initialize()で値が決まる。
 	double widthCanvas1; // canvas1 の width
 	double heightCanvas1; // canvas1 の height
 	double widthCanvas2; // canvas2 の width
 	double heightCanvas2; // canvas2 の height
-	//描画のときのマージン
+	// 描画のときのマージン
 	int margin = 10;
 	GraphicsContext gc1, gc2;
 	//
@@ -70,7 +72,7 @@ public class PrimaryController {
 	protected void initialize() {
 		// 仮にGENとEXPをここで設定しておく。
 		GEN = 200;
-		EXP = 10;
+		EXP = 3;
 		// canvas のサイズを取得
 		widthCanvas1 = canvas1.getWidth();
 		heightCanvas1 = canvas1.getHeight();
@@ -83,8 +85,6 @@ public class PrimaryController {
 		gc2 = canvas2.getGraphicsContext2D();
 		gc1.setFill(Color.WHITE);
 		gc1.fillRect(0, 0, widthCanvas1, heightCanvas1);
-		gc1.setStroke(Color.BLACK);
-		gc1.strokeLine(0, 0, 200, 200);
 	}
 
 	//
@@ -95,27 +95,21 @@ public class PrimaryController {
 		// データを適当に入れる。
 		for (int i = 0; i < aveDataTable.length; i++) {
 			for (int j = 0; j < aveDataTable[0].length; j++) {
-				aveDataTable[i][j] = round(gen.nextDouble());
+				aveDataTable[i][j] = round(3.0 * gen.nextDouble());
 			}
 		}
-//		// チェック
-//		for (double[] darray : aveDataTable) {
-//			for (double d : darray) {
-//				log.appendText(d + "\t");
-//			}
-//			log.appendText("\n");
-//		}
-		//グラフエリアの上限下限・左右
-		int top,bottom,left,right;
+		// グラフエリアの上限下限・左右
+		int top, bottom, left, right;
 		top = margin;
-		bottom = (int)heightCanvas1 - margin;
+		bottom = (int) heightCanvas1 - margin;
 		left = margin;
-		right = (int)widthCanvas1 - margin;
-		//グラフエリアの高さ・幅
-		int gHight,gWidth;
-		gHight = bottom - top; //このpixel が値 0.0 - 3.0
-		gWidth = right - left; //このpixel 
+		right = (int) widthCanvas1 - margin;
+		// グラフエリアの高さ・幅
+		int gHeight, gWidth;
+		gHeight = bottom - top; // このpixel が値 0.0 - 3.0
+		gWidth = right - left; // このpixel
 		// Layer Test
+		// スライダーによる世代を示す赤線をかぶせる。
 		slider.setMax(GEN);
 		slider.setMajorTickUnit(GEN / 10.0);
 		slider.valueProperty().addListener(new ChangeListener<Number>() {
@@ -136,23 +130,92 @@ public class PrimaryController {
 			}
 
 		});
+		// canvas1 にグラフを描く
+		//strokPolyLine に渡すための pxel 配列
+		double[] yPix = new double[GEN];
+		double[] xPix = new double[GEN];
+		// Table からスピナーの値の列を抜き出した配列を作る。
+		expSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, EXP-1));
+		expSpinner.getValueFactory().setWrapAround(true);
+		expSpinner.getValueFactory().setValue(0);
+		nowExp = expSpinner.getValue();
+		log.appendText("in openAction()"+nowExp+"\n");
+		// Table から抜き出した配列。
+		nowExpAveData = new double[GEN];
+		for (int i = 0; i < GEN; i++) {
+			nowExpAveData[i] = aveDataTable[i][nowExp];
+			//log.appendText(nowExpAveData[i]+"\n");
+		}
+		//データが抜き出されたのでpixelデータを作る
+		makePixelData(xPix,yPix,nowExpAveData,gWidth,gHeight);
+		for(double d:yPix) {
+			log.appendText(d+"\n");
+		}
+		// 描画。polyLine を使いたい。
+		gc1.strokePolyline(xPix, yPix, GEN);
+		expSpinner.valueProperty().addListener(new ChangeListener<Integer>() {
+			@Override
+			public void changed(ObservableValue<? extends Integer> observable, Integer oldValue, Integer newValue) {
+				nowExp = expSpinner.getValue();
+				for (int i = 0; i < GEN; i++) {
+					nowExpAveData[i] = aveDataTable[i][nowExp];
+				}
+				//データが抜き出されたのでpixelデータを作る
+				//makePixelData(xPix,yPix,nowExpAveData,gWidth,gHeight);
+				// 描画。polyLine を使いたい。
+				//gc1.clearRect(0, 0, widthCanvas1, heightCanvas1);
+				//gc1.setFill(Color.WHITE);
+				//gc1.fillRect(0, 0, widthCanvas1, heightCanvas1);
+				//gc1.strokePolyline(xPix, yPix, GEN);
+			}
+		});
+		// y軸方向のデータ。平均値とかtype別比率とか
+		
 		//
 	} // end of method openAction()
-	// draw garaphics2D と double 配列を与えられて Canvas1 にグラフを描く
-	public void draw(GraphicsContext g, double[] data) {
+
+	// x軸、y軸のpixelデータを作成する。
+	public void makePixelData(double[] xPix, double[] yPix, double[] yData, int w, int h) {
+		// x軸方向についてはこのメソッドの中で作ってしまうので引数に元データはない。
+		yPix = translate(h, yData);
 		
-	}
+		for (int i = 0; i < yPix.length; i++) {
+			double d = yPix[i];
+			d = d + margin;
+			yPix[i] = d;
+		}// end of for(yPix の margin 調整
+//		for(double d:yPix) {
+//			log.appendText(d+"\n");
+//		}
+		//
+		double par = w / GEN;
+		xPix[0] = 0.0;
+		for (int i = 1; i < GEN; i++) {
+			xPix[i] = xPix[i - 1] + par;
+		}
+		for (int i = 0; i < GEN; i++) {
+			double d = xPix[i];
+			d = d + margin;
+			xPix[i] = d;
+		}
+		//
+	} // end of makePixelData()
+
 	// translate pixel 幅と double配列を与えられて、pixel値の配列を返す。
-	public int[] translate(int height,double[] data) {
-		int[] r = new int[data.length];
+	public double[] translate(int height, double[] data) {
+		// canvas.strokPolyLine() がdouble[] をとるので。
+		double[] d = new double[data.length];
 		double maxValue = 3.0;
-		//数値1.0あたりの pixel数
-		double par = maxValue / height;
-		
-		
-		
-		return r;
+		// 数値1.0あたりの pixel数
+		double par = height / maxValue;
+		//log.appendText("height=" + height + "par=" + par + "\n");
+		// 配列r に pixel換算されたデータが入る
+		for (int i = 0; i < data.length; i++) {
+			d[i] = par * data[i];
+		}
+		return d;
 	}
+
 	//
 	public double round(double in) {
 		double after = 0.0;
