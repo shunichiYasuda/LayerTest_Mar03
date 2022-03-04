@@ -148,42 +148,52 @@ public class PrimaryController {
 		}
 		//データが抜き出されたのでpixelデータを作る
 		makePixelData(xPix,yPix,nowExpAveData,gWidth,gHeight);
-		for(double d:yPix) {
-			log.appendText(d+"\n");
-		}
+//		for(double d:xPix) {
+//			log.appendText(d+"\n");
+//		}
 		// 描画。polyLine を使いたい。
 		gc1.strokePolyline(xPix, yPix, GEN);
 		expSpinner.valueProperty().addListener(new ChangeListener<Integer>() {
 			@Override
 			public void changed(ObservableValue<? extends Integer> observable, Integer oldValue, Integer newValue) {
 				nowExp = expSpinner.getValue();
+				log.appendText("exp = "+nowExp+"\n");
 				for (int i = 0; i < GEN; i++) {
 					nowExpAveData[i] = aveDataTable[i][nowExp];
 				}
 				//データが抜き出されたのでpixelデータを作る
-				//makePixelData(xPix,yPix,nowExpAveData,gWidth,gHeight);
+				makePixelData(xPix,yPix,nowExpAveData,gWidth,gHeight);
 				// 描画。polyLine を使いたい。
-				//gc1.clearRect(0, 0, widthCanvas1, heightCanvas1);
-				//gc1.setFill(Color.WHITE);
-				//gc1.fillRect(0, 0, widthCanvas1, heightCanvas1);
-				//gc1.strokePolyline(xPix, yPix, GEN);
+				gc1.clearRect(0, 0, widthCanvas1, heightCanvas1);
+				gc1.setFill(Color.WHITE);
+				gc1.fillRect(0, 0, widthCanvas1, heightCanvas1);
+				gc1.strokePolyline(xPix, yPix, GEN);
 			}
 		});
-		// y軸方向のデータ。平均値とかtype別比率とか
+		
+		//文字が書けない！
+		gc1.strokeText("Here", 300, 300);
 		
 		//
 	} // end of method openAction()
+	
+	
+
 
 	// x軸、y軸のpixelデータを作成する。
 	public void makePixelData(double[] xPix, double[] yPix, double[] yData, int w, int h) {
 		// x軸方向についてはこのメソッドの中で作ってしまうので引数に元データはない。
-		yPix = translate(h, yData);
-		
-		for (int i = 0; i < yPix.length; i++) {
-			double d = yPix[i];
+		//このメソッドはなぜか yPix がはいらない。
+		//おそらく引数で　入れたものに直接値をいれていないから。
+		double[] y = translate(h, yData);
+		for (int i = 0; i < GEN; i++) {
+			double d = y[i];
 			d = d + margin;
-			yPix[i] = d;
+			y[i] = d;
 		}// end of for(yPix の margin 調整
+		for(int i=0;i<GEN;i++) {
+			yPix[i] = y[i];
+		}
 //		for(double d:yPix) {
 //			log.appendText(d+"\n");
 //		}
